@@ -24,7 +24,7 @@ class Switch:
         self.name = self.attributes['switch_name']
 
         try:
-            self.current_level = self.attributes['level']
+            self.current_level = self.attributes.get('level')
         except Exception as e:
             logger.error(e)
             self.current_level = None
@@ -41,21 +41,17 @@ class Switch:
         self.config = {
             'name': self.name,
             'unique_id': self.id,
-            'command_topic': switch_command_topic.format(
-                id=self.id),
-            'state_topic': switch_state_topic.format(
-                id=self.id),
-            'json_attributes_topic': switch_attributes_topic.format(
-                id=self.id),
-            'payload_on': "TOGGLE",
-            'payload_off': "TOGGLE",
-            'retain': 'false',
+            'command_topic': switch_command_topic.format(id=self.id),
+            'state_topic': switch_state_topic.format(id=self.id),
+            'json_attributes_topic': switch_attributes_topic.format(id=self.id),
+            'payload_on': "ON",
+            'payload_off': "OFF",
+            'retain': False,
             'device': self.device}
 
         if self.mqtt is not None:
             self.mqtt.mqtt_client.publish(
-                self.config_topic, json.dumps(
-                    self.config), qos=0, retain=True)
+                self.config_topic, json.dumps(self.config), qos=0, retain=True)
 
     async def update(self):
         await self.setup()
@@ -63,11 +59,10 @@ class Switch:
         try:
             await self.update_sensors()
         except Exception as e:
-            logger.error("Switch sensors Error :")
+            logger.error("Switch sensors Error:")
             logger.error(e)
 
-        self.level_topic = switch_state_topic.format(
-            id=self.id, current_level=self.current_level)
+        self.level_topic = switch_state_topic.format(id=self.id)
 
         if self.mqtt is not None:
             self.mqtt.mqtt_client.publish(
@@ -76,16 +71,12 @@ class Switch:
                 qos=0,
                 retain=True)
             self.mqtt.mqtt_client.publish(
-                self.config['json_attributes_topic'], self.attributes, qos=0, retain=True)
-        logger.info(
-            "Switch created / updated : %s %s %s",
-            self.name,
-            self.id,
-            self.current_level)
+                self.config['json_attributes_topic'], json.dumps(self.attributes), qos=0, retain=True)
+        logger.info("Switch created / updated: %s %s %s", self.name, self.id, self.current_level)
 
     async def update_sensors(self):
         for i, j in self.attributes.items():
-            if not i == 'device_type' or not i == 'id':
+            if i not in ['device_type', 'id']:
                 new_sensor = Sensor(
                     elem_name=i,
                     tydom_attributes_payload=self.attributes,
@@ -95,11 +86,11 @@ class Switch:
     @staticmethod
     async def put_level_gate(tydom_client, device_id, switch_id, level):
         logger.info("%s %s %s", switch_id, 'level', level)
-        if not (level == ''):
+        if level is not None:
             await tydom_client.put_devices_data(device_id, switch_id, 'level', level)
 
     @staticmethod
     async def put_level_cmd_gate(tydom_client, device_id, switch_id, level_cmd):
         logger.info("%s %s %s", switch_id, 'levelCmd', level_cmd)
-        if not (level_cmd == ''):
+        if level_cmd is not None:
             await tydom_client.put_devices_data(device_id, switch_id, 'levelCmd', level_cmd)
